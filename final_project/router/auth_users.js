@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 let books = require("./booksdb.js");
 const regd_users = express.Router();
 
-let users = [{username: "test", password: "123"}];
+let users = [{ username: "test", password: "123" }, { username: "user1", password: "123" }];
 
 const isValid = (username) => { //returns boolean
   //write code to check is the username is valid
@@ -55,15 +55,42 @@ regd_users.post("/login", (req, res) => {
 
 // Add a book review
 regd_users.put("/auth/review/:isbn", (req, res) => {
+  const reviews = [];
+  const isbn = req.params.isbn;
+  const content = req.body.review;
+  const username = req.session.authorization.username;
+  if (books[isbn]) {
+    //store previous reviews
+    reviews.push(...books[isbn]["reviews"]);
+    //if username has no review yet, add it
+    if (!books[isbn]["reviews"]["username"]) {
+      reviews.push({ username: username, review: req.body.review })
+    } else {
+      //else update the review in the reviews array
+      reviews.forEach((rev) => {
+        if (rev.username === username) {
+          rev.review = content;
+        }
+      })
+    }
+    books[isbn]["reviews"] = reviews;
+    return res.status(200).json({ message: "Review added/updated successfully" });
+  } else {
+    return res.status(404).json({ message: "Book not found" });
+  }
+});
+
+regd_users.delete("/auth/review/:isbn", (req, res) => {
   const isbn = req.params.isbn;
   const username = req.session.authorization.username;
-  if(books[isbn]){
-    books[isbn]["reviews"]["username"] = username
-    books[isbn]["reviews"]["review"] = req.body.review 
-    console.log(books[isbn]);
-    return res.status(200).json({message: "Review added/updated successfully"});
+  if (books[isbn]) {
+    let reviews = books[isbn]["reviews"];
+    //filter out the review by the user
+    reviews = reviews.filter((rev) => rev.username !== username);
+    books[isbn]["reviews"] = reviews;
+    return res.status(200).json({ message: `Review by ${username} deleted successfully!` });
   } else {
-    return res.status(404).json({message: "Book not found"});
+    return res.status(404).json({ message: "Book not found" });
   }
 });
 
